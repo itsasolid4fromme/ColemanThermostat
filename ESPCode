@@ -60,22 +60,27 @@ void loop() {
   if (millis() - lastTempUpdate > tempInterval) {
     sensors.requestTemperatures();
     float ambientTempC = sensors.getTempCByIndex(0);
-    currentTempZone1 = ambientTempC * 9.0 / 5.0 + 32.0;
-    currentTempZone2 = currentTempZone1; // Mirror Zone 1
+    Serial.print("Ambient Temp (C): ");
+    Serial.println(ambientTempC);
 
     if (ambientTempC != DEVICE_DISCONNECTED_C) {
+      currentTempZone1 = ambientTempC * 9.0 / 5.0 + 32.0;
+      currentTempZone2 = currentTempZone1; // Mirror Zone 1
+
       myNex.writeStr("tZone1Temp.txt", String(currentTempZone1, 1) + " F");
       myNex.writeStr("tZone2Temp.txt", String(currentTempZone2, 1) + " F");
     } else {
       myNex.writeStr("tZone1Temp.txt", "Error");
       myNex.writeStr("tZone2Temp.txt", "Error");
+      Serial.println("Sensor disconnected!");
     }
 
     myNex.writeStr("tZone1Set.txt", String(zone1Setpoint));
     myNex.writeStr("tZone2Set.txt", String(zone2Setpoint));
-
     myNex.writeStr("tHeatSet.txt", String(heatSetpoint) + "F");
     myNex.writeStr("tCoolSet.txt", String(coolSetpoint) + "F");
+
+    updateSystemStatus();
 
     if (autoModeEnabled) handleAutoMode();
 
@@ -185,4 +190,24 @@ void bCoolDownPressed() {
 
 void bHomePressed() {
   myNex.writeNum("page", 0);  // Go Home
+}
+
+void updateSystemStatus() {
+  if (autoModeEnabled) {
+    if (systemHeating) {
+      myNex.writeStr("tSystemStatus.txt", "Auto: Heating");
+    } else if (systemCooling) {
+      myNex.writeStr("tSystemStatus.txt", "Auto: Cooling");
+    } else {
+      myNex.writeStr("tSystemStatus.txt", "Auto: Idle");
+    }
+  } else {
+    if (zone1Mode == 0x02) {
+      myNex.writeStr("tSystemStatus.txt", "Manual: Heating");
+    } else if (zone1Mode == 0x03) {
+      myNex.writeStr("tSystemStatus.txt", "Manual: Cooling");
+    } else {
+      myNex.writeStr("tSystemStatus.txt", "Manual: Off");
+    }
+  }
 }
