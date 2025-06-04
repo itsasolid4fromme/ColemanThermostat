@@ -57,7 +57,6 @@ void loop() {
     String command = nextionSerial.readStringUntil('\n');
     command.trim();
     handleCommand(command);
-    updateScreen();
   }
 
   // Handle Auto Mode Temperature Check every 5 seconds
@@ -106,6 +105,8 @@ void handleCommand(String command) {
   else if (command == "zone2FanLow") zone2FanModeHigh = 2;
 
   else if (command == "save") sendRS485Packet();
+
+  updateScreen();  // 🔥 IMMEDIATE REFRESH
 }
 
 void handleAutoMode() {
@@ -160,6 +161,7 @@ uint8_t fanModeCode(uint8_t zone) {
   }
   return 0x99;
 }
+
 void updateScreen() {
   sendText("zone1Setpoint", String(zone1Setpoint) + "F");
   sendText("zone2Setpoint", String(zone2Setpoint) + "F");
