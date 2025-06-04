@@ -24,7 +24,7 @@ DallasTemperature sensors(&oneWire);
 
 // Zone variables
 float currentTempZone1 = 0.0;
-float currentTempZone2 = 72.0; // Simulated Zone 2
+float currentTempZone2 = 0.0; // Will mirror Zone 1 sensor
 
 uint8_t zone1Setpoint = 70;
 uint8_t zone2Setpoint = 72;
@@ -61,12 +61,14 @@ void loop() {
     sensors.requestTemperatures();
     float ambientTempC = sensors.getTempCByIndex(0);
     currentTempZone1 = ambientTempC * 9.0 / 5.0 + 32.0;
+    currentTempZone2 = currentTempZone1; // Mirror Zone 1
 
     if (ambientTempC != DEVICE_DISCONNECTED_C) {
       myNex.writeStr("tZone1Temp.txt", String(currentTempZone1, 1) + " F");
       myNex.writeStr("tZone2Temp.txt", String(currentTempZone2, 1) + " F");
     } else {
       myNex.writeStr("tZone1Temp.txt", "Error");
+      myNex.writeStr("tZone2Temp.txt", "Error");
     }
 
     myNex.writeStr("tZone1Set.txt", String(zone1Setpoint));
