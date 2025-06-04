@@ -1,1 +1,206 @@
-https://github.com/itsasolid4fromme/ColemanThermostat/blob/main/ESPCode
+#include <HardwareSerial.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// RS485 setup
+#define RS485_TX 17
+#define RS485_RX 16
+#define RS485_EN 5
+
+HardwareSerial RS485Serial(2); // UART2 for RS485
+
+// Nextion setup
+#define NEXTION_TX 33
+#define NEXTION_RX 32
+HardwareSerial nextionSerial(1); // UART1 for Nextion
+
+// DS18B20 Setup
+#define ONE_WIRE_BUS 4
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+// Variables
+uint8_t zone1Setpoint = 70;
+uint8_t zone2Setpoint = 72;
+
+uint8_t zone1Mode = 0x03; // Cool
+uint8_t zone2Mode = 0x03; // Cool
+
+uint8_t zone1FanModeHigh = 0;
+uint8_t zone2FanModeHigh = 0;
+
+bool zone1AutoMode = false;
+float currentRoomTemp = 75.0;
+
+unsigned long lastTempRead = 0;
+
+void setup() {
+  Serial.begin(115200);
+
+  // RS485
+  pinMode(RS485_EN, OUTPUT);
+  digitalWrite(RS485_EN, LOW);
+  RS485Serial.begin(9600, SERIAL_8N1, RS485_RX, RS485_TX);
+
+  // Nextion
+  nextionSerial.begin(9600, SERIAL_8N1, NEXTION_RX, NEXTION_TX);
+
+  // DS18B20
+  sensors.begin();
+
+  updateScreen();
+}
+
+void loop() {
+  // Handle button commands
+  if (nextionSerial.available()) {
+    String command = nextionSerial.readStringUntil('\n');
+    command.trim();
+    handleCommand(command);
+    updateScreen();
+  }
+
+  // Handle Auto Mode Temperature Check every 5 seconds
+  if (millis() - lastTempRead > 5000) {
+    sensors.requestTemperatures();
+    currentRoomTemp = sensors.getTempFByIndex(0); // Fahrenheit
+    if (zone1AutoMode) {
+      handleAutoMode();
+    }
+    lastTempRead = millis();
+    updateScreen();
+  }
+}
+
+void handleCommand(String command) {
+  if (command == "zone1Up") zone1Setpoint++;
+  else if (command == "zone1Down") zone1Setpoint--;
+  else if (command == "zone2Up") zone2Setpoint++;
+  else if (command == "zone2Down") zone2Setpoint--;
+
+  else if (command == "zone1Cool") {
+    zone1Mode = 0x03;
+    zone1AutoMode = false;
+  }
+  else if (command == "zone1Heat") {
+    zone1Mode = 0x02;
+    zone1AutoMode = false;
+  }
+  else if (command == "zone1Off") {
+    zone1Mode = 0x00;
+    zone1AutoMode = false;
+  }
+  else if (command == "zone1Auto") {
+    zone1AutoMode = true;
+  }
+
+  else if (command == "zone2Cool") zone2Mode = 0x03;
+  else if (command == "zone2Off") zone2Mode = 0x00;
+
+  else if (command == "zone1FanAuto") zone1FanModeHigh = 0;
+  else if (command == "zone1FanHigh") zone1FanModeHigh = 1;
+  else if (command == "zone1FanLow") zone1FanModeHigh = 2;
+
+  else if (command == "zone2FanAuto") zone2FanModeHigh = 0;
+  else if (command == "zone2FanHigh") zone2FanModeHigh = 1;
+  else if (command == "zone2FanLow") zone2FanModeHigh = 2;
+
+  else if (command == "save") sendRS485Packet();
+}
+
+void handleAutoMode() {
+  if (currentRoomTemp <= (zone1Setpoint - 1)) {
+    // Room is too cold — need HEAT
+    zone1Mode = 0x02; // Heat
+    zone2Mode = 0x00; // Turn OFF Zone 2
+  }
+  else if (currentRoomTemp >= (zone1Setpoint + 1)) {
+    // Room is too hot — need COOL
+    zone1Mode = 0x03; // Cool
+    zone2Mode = 0x03; // Cool ON
+  }
+  // else — temp within range, do nothing
+}
+
+void sendRS485Packet() {
+  uint8_t zone1Value = zone1Setpoint + 82;
+  uint8_t zone2Value = zone2Setpoint + 82;
+
+  uint8_t packet[] = {
+    0xF6,
+    zone1Value,
+    zone1Mode,
+    fanModeCode(1),
+    zone2Value,
+    zone2Mode,
+    fanModeCode(2),
+    0xFF
+  };
+
+  digitalWrite(RS485_EN, HIGH);
+  delay(2);
+  RS485Serial.write(packet, sizeof(packet));
+  RS485Serial.flush();
+  digitalWrite(RS485_EN, LOW);
+}
+
+uint8_t fanModeCode(uint8_t zone) {
+  if (zone == 1) {
+    switch (zone1FanModeHigh) {
+      case 0: return 0xD9; // Auto
+      case 1: return 0x33; // High
+      case 2: return 0xD9; // Low
+    }
+  } else if (zone == 2) {
+    switch (zone2FanModeHigh) {
+      case 0: return 0x99; // Auto
+      case 1: return 0x33; // High
+      case 2: return 0xB2; // Low
+    }
+  }
+  return 0x99;
+}
+
+void updateScreen() {
+  sendText("zone1Setpoint", String(zone1Setpoint) + "°F");
+  sendText("zone2Setpoint", String(zone2Setpoint) + "°F");
+
+  sendText("zone1Temp", String(currentRoomTemp, 1) + "°F");
+
+  sendText("zone1ModeText", modeToString(zone1Mode, zone1AutoMode));
+  sendText("zone2ModeText", modeToString(zone2Mode, false));
+
+  sendText("zone1FanText", fanToString(zone1FanModeHigh));
+  sendText("zone2FanText", fanToString(zone2FanModeHigh));
+}
+
+void sendText(String component, String txt) {
+  String cmd = component + ".txt=\"" + txt + "\"";
+  nextionSerial.print(cmd);
+  sendCommandEnd();
+}
+
+void sendCommandEnd() {
+  nextionSerial.write(0xFF);
+  nextionSerial.write(0xFF);
+  nextionSerial.write(0xFF);
+}
+
+String modeToString(uint8_t mode, bool autoMode) {
+  if (autoMode) return "Auto";
+  switch (mode) {
+    case 0x00: return "Off";
+    case 0x02: return "Heat";
+    case 0x03: return "Cool";
+    default: return "Unknown";
+  }
+}
+
+String fanToString(uint8_t fan) {
+  switch (fan) {
+    case 0: return "Auto";
+    case 1: return "High";
+    case 2: return "Low";
+    default: return "Unknown";
+  }
+}
