@@ -56,6 +56,7 @@ void setup() {
 
 void loop() {
   myNex.NextionListen();
+  myButtonEvent();
 
   if (millis() - lastTempUpdate > tempInterval) {
     sensors.requestTemperatures();
@@ -146,6 +147,35 @@ uint8_t fanModeCode(uint8_t zone) {
     }
   }
   return 0x99;
+}
+
+void myButtonEvent() {
+  if (myNex.lastCurrentPageId == 0) { // Only if page is 0
+    uint16_t id = myNex.getLastButtonId();
+    switch (id) {
+      case 1: Serial.println("Zone 1 Temp Up"); bZone1TempUpPressed(); break;
+      case 2: Serial.println("Zone 1 Temp Down"); bZone1TempDownPressed(); break;
+      case 3: Serial.println("Zone 2 Temp Up"); bZone2TempUpPressed(); break;
+      case 4: Serial.println("Zone 2 Temp Down"); bZone2TempDownPressed(); break;
+      case 5: Serial.println("Zone 1 Cool"); bZone1CoolPressed(); break;
+      case 6: Serial.println("Zone 1 Heat"); bZone1HeatPressed(); break;
+      case 7: Serial.println("Zone 1 Off"); bZone1OffPressed(); break;
+      case 8: Serial.println("Zone 2 Cool"); bZone2CoolPressed(); break;
+      case 9: Serial.println("Zone 2 Off"); bZone2OffPressed(); break;
+      case 10: Serial.println("Zone 1 Fan Auto"); bZone1FanAutoPressed(); break;
+      case 11: Serial.println("Zone 1 Fan High"); bZone1FanHighPressed(); break;
+      case 12: Serial.println("Zone 1 Fan Low"); bZone1FanLowPressed(); break;
+      case 13: Serial.println("Zone 2 Fan Auto"); bZone2FanAutoPressed(); break;
+      case 14: Serial.println("Zone 2 Fan High"); bZone2FanHighPressed(); break;
+      case 15: Serial.println("Zone 2 Fan Low"); bZone2FanLowPressed(); break;
+      case 16: Serial.println("Auto Toggle"); bAutoTogglePressed(); break;
+      case 17: Serial.println("Heat Setpoint Up"); bHeatUpPressed(); break;
+      case 18: Serial.println("Heat Setpoint Down"); bHeatDownPressed(); break;
+      case 19: Serial.println("Cool Setpoint Up"); bCoolUpPressed(); break;
+      case 20: Serial.println("Cool Setpoint Down"); bCoolDownPressed(); break;
+      case 21: Serial.println("Home Pressed"); bHomePressed(); break;
+    }
+  }
 }
 
 // Button Handlers
