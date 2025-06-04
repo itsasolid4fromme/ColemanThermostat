@@ -231,16 +231,19 @@ void bZone1TempDownPressed() {
 
 void bZone1CoolPressed() {
   zone1Mode = 0x03; // Cool
+  updateSystemStatus();
   sendRS485Packet();
 }
 
 void bZone1HeatPressed() {
   zone1Mode = 0x02; // Heat
+  updateSystemStatus();
   sendRS485Packet();
 }
 
 void bZone1OffPressed() {
   zone1Mode = 0x00; // Off
+  updateSystemStatus();
   sendRS485Packet();
 }
 
