@@ -160,12 +160,12 @@ uint8_t fanModeCode(uint8_t zone) {
   }
   return 0x99;
 }
-
 void updateScreen() {
   sendText("zone1Setpoint", String(zone1Setpoint) + "°F");
   sendText("zone2Setpoint", String(zone2Setpoint) + "°F");
 
-  sendText("zone1Temp", String(currentRoomTemp, 1) + "°F");
+  sendText("zone1Temp", String(currentRoomTemp, 1) + "°F"); // Zone 1 current temp
+  sendText("zone2Temp", String(currentRoomTemp, 1) + "°F"); // Zone 2 current temp
 
   sendText("zone1ModeText", modeToString(zone1Mode, zone1AutoMode));
   sendText("zone2ModeText", modeToString(zone2Mode, false));
