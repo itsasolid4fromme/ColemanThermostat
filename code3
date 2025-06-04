@@ -1,0 +1,117 @@
+// Full ESP32 Code: RS485 Thermostat Controller with Nextion Touchscreen (REWRITTEN for ESP32-friendly Nextion library)
+
+#include <HardwareSerial.h>
+#include <Nextion.h> // ESP32-compatible Nextion library (bborncr/nextion)
+
+#define RS485_TX 17
+#define RS485_RX 16
+#define RS485_EN 4
+
+// RS485 UART (Hardware Serial 2)
+HardwareSerial RS485Serial(2);
+
+// Nextion UART (Hardware Serial 1)
+#define NEXTION_TX 33
+#define NEXTION_RX 32
+HardwareSerial nextionSerial(1);
+Nextion myNextion(nextionSerial, 9600); // Nextion object
+
+// Variables to hold settings
+uint8_t zone1Temp = 70; // Default temp
+uint8_t zone2Temp = 72;
+
+uint8_t zone1Mode = 0x03; // Cool
+uint8_t zone2Mode = 0x03; // Cool
+
+uint8_t zone1FanModeHigh = 0; // 0 = Auto, 1 = High, 2 = Low
+uint8_t zone2FanModeHigh = 0;
+
+unsigned long lastSend = 0; // For automatic sending every 5 seconds
+
+void setup() {
+  Serial.begin(115200);
+
+  // RS485 Setup
+  pinMode(RS485_EN, OUTPUT);
+  digitalWrite(RS485_EN, LOW); // RX mode by default
+  RS485Serial.begin(9600, SERIAL_8N1, RS485_RX, RS485_TX);
+
+  // Nextion Setup
+  myNextion.init();
+}
+
+void loop() {
+  myNextion.listen(); // Listen for touch events
+
+  String message = myNextion.recvCommand();
+
+  if (message.length() > 0) {
+    handleTouch(message);
+  }
+
+  if (millis() - lastSend > 5000) { // Every 5 seconds
+    sendRS485Packet();
+    lastSend = millis();
+  }
+}
+
+void handleTouch(String message) {
+  if (message.indexOf("bZone1TempUp") >= 0) zone1Temp++;
+  if (message.indexOf("bZone1TempDown") >= 0) zone1Temp--;
+  if (message.indexOf("bZone2TempUp") >= 0) zone2Temp++;
+  if (message.indexOf("bZone2TempDown") >= 0) zone2Temp--;
+
+  if (message.indexOf("bZone1Cool") >= 0) zone1Mode = 0x03;
+  if (message.indexOf("bZone1Heat") >= 0) zone1Mode = 0x02;
+  if (message.indexOf("bZone1Off") >= 0) zone1Mode = 0x00;
+
+  if (message.indexOf("bZone2Cool") >= 0) zone2Mode = 0x03;
+  if (message.indexOf("bZone2Off") >= 0) zone2Mode = 0x00;
+
+  if (message.indexOf("bZone1FanAuto") >= 0) zone1FanModeHigh = 0;
+  if (message.indexOf("bZone1FanHigh") >= 0) zone1FanModeHigh = 1;
+  if (message.indexOf("bZone1FanLow") >= 0) zone1FanModeHigh = 2;
+
+  if (message.indexOf("bZone2FanAuto") >= 0) zone2FanModeHigh = 0;
+  if (message.indexOf("bZone2FanHigh") >= 0) zone2FanModeHigh = 1;
+  if (message.indexOf("bZone2FanLow") >= 0) zone2FanModeHigh = 2;
+}
+
+void sendRS485Packet() {
+  uint8_t zone1Setpoint = zone1Temp + 82;
+  uint8_t zone2Setpoint = zone2Temp + 82;
+
+  uint8_t packet[] = {
+    0xF6,
+    zone1Setpoint,
+    zone1Mode,
+    fanModeCode(1),
+    zone2Setpoint,
+    zone2Mode,
+    fanModeCode(2),
+    0xFF // Placeholder End/Checksum
+  };
+
+  digitalWrite(RS485_EN, HIGH);
+  delay(2);
+  RS485Serial.write(packet, sizeof(packet));
+  RS485Serial.flush();
+  digitalWrite(RS485_EN, LOW);
+}
+
+uint8_t fanModeCode(uint8_t zone) {
+  if (zone == 1) {
+    switch (zone1FanModeHigh) {
+      case 0: return 0xD9; // Auto
+      case 1: return 0x33; // High
+      case 2: return 0xD9; // Low
+    }
+  } else if (zone == 2) {
+    switch (zone2FanModeHigh) {
+      case 0: return 0x99; // Auto
+      case 1: return 0x33; // High
+      case 2: return 0xB2; // Low
+    }
+  }
+  return 0x99;
+}
