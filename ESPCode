@@ -1,4 +1,4 @@
-// ESP32 Dual Zone Thermostat with DS18B20, Multiple Pages, Nextion GUI
+// ESP32 Dual Zone Thermostat with Auto Mode, DS18B20, Nextion GUI
 
 #include <HardwareSerial.h>
 #include <EasyNextionLibrary.h>
@@ -6,19 +6,19 @@
 #include <DallasTemperature.h>
 
 // RS485 UART Settings
-#define RS485_TX 17    // ESP32 UART2 TX
-#define RS485_RX 16    // ESP32 UART2 RX
+#define RS485_TX 17
+#define RS485_RX 16
 
 HardwareSerial RS485Serial(2);
 
-// Nextion Serial (UART1)
+// Nextion Serial
 #define NEXTION_TX 33
 #define NEXTION_RX 32
 HardwareSerial nextionSerial(1);
-EasyNex myNex(nextionSerial); // Create EasyNex object
+EasyNex myNex(nextionSerial);
 
-// DS18B20 Temp Sensor (for Zone 1)
-#define ONE_WIRE_BUS 25  // GPIO 25
+// DS18B20 Temp Sensor
+#define ONE_WIRE_BUS 25
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
@@ -26,22 +26,28 @@ DallasTemperature sensors(&oneWire);
 float currentTempZone1 = 0.0;
 float currentTempZone2 = 72.0; // Simulated Zone 2
 
-uint8_t zone1Setpoint = 70; // Default set temps
+uint8_t zone1Setpoint = 70;
 uint8_t zone2Setpoint = 72;
 
-uint8_t zone1Mode = 0x03; // Cool by default
-uint8_t zone2Mode = 0x03;
+uint8_t zone1Mode = 0x03; // Cool
+uint8_t zone2Mode = 0x03; // Cool
 
-uint8_t zone1FanModeHigh = 0; // 0 = Auto, 1 = High, 2 = Low
+uint8_t zone1FanModeHigh = 0;
 uint8_t zone2FanModeHigh = 0;
 
+// Auto Mode Variables
+bool autoModeEnabled = false;
+uint8_t heatSetpoint = 68;
+uint8_t coolSetpoint = 74;
+bool systemHeating = false;
+bool systemCooling = false;
+
 unsigned long lastTempUpdate = 0;
-const unsigned long tempInterval = 2000; // 2 seconds
+const unsigned long tempInterval = 2000;
 
 void setup() {
   Serial.begin(115200);
   RS485Serial.begin(9600, SERIAL_8N1, RS485_RX, RS485_TX);
-
   nextionSerial.begin(9600, SERIAL_8N1, NEXTION_RX, NEXTION_TX);
   myNex.begin(9600);
 
@@ -66,7 +72,36 @@ void loop() {
     myNex.writeStr("tZone1Set.txt", String(zone1Setpoint));
     myNex.writeStr("tZone2Set.txt", String(zone2Setpoint));
 
+    myNex.writeStr("tHeatSet.txt", String(heatSetpoint) + "F");
+    myNex.writeStr("tCoolSet.txt", String(coolSetpoint) + "F");
+
+    if (autoModeEnabled) handleAutoMode();
+
     lastTempUpdate = millis();
+  }
+}
+
+void handleAutoMode() {
+  if (currentTempZone1 < heatSetpoint - 1 && !systemHeating) {
+    zone1Mode = 0x02; // Heat
+    zone2Mode = 0x00; // Off
+    systemHeating = true;
+    systemCooling = false;
+    sendRS485Packet();
+  } else if (currentTempZone1 > coolSetpoint + 1 && !systemCooling) {
+    zone1Mode = 0x03; // Cool
+    zone2Mode = 0x00; // Off
+    systemCooling = true;
+    systemHeating = false;
+    sendRS485Packet();
+  } else if (currentTempZone1 >= heatSetpoint && currentTempZone1 <= coolSetpoint) {
+    if (systemHeating || systemCooling) {
+      zone1Mode = 0x00; // Off
+      zone2Mode = 0x00; // Off
+      systemHeating = false;
+      systemCooling = false;
+      sendRS485Packet();
+    }
   }
 }
 
@@ -106,35 +141,46 @@ uint8_t fanModeCode(uint8_t zone) {
   return 0x99;
 }
 
-// Example for handling a button press
-void bZone1CoolPressed() {
-  zone1Mode = 0x03;
-  sendRS485Packet();
+// Button Handlers
+void bAutoTogglePressed() {
+  autoModeEnabled = !autoModeEnabled;
+  if (autoModeEnabled) {
+    myNex.writeStr("tAutoStatus.txt", "Auto Mode: ON");
+    myNex.writeStr("bAutoToggle.txt", "Disable Auto Mode");
+  } else {
+    myNex.writeStr("tAutoStatus.txt", "Auto Mode: OFF");
+    myNex.writeStr("bAutoToggle.txt", "Enable Auto Mode");
+  }
 }
 
-void bZone1HeatPressed() {
-  zone1Mode = 0x02;
-  sendRS485Packet();
+void bHeatUpPressed() {
+  if (heatSetpoint < coolSetpoint - 2) {
+    heatSetpoint++;
+    myNex.writeStr("tHeatSet.txt", String(heatSetpoint) + "F");
+  }
 }
 
-void bZone1OffPressed() {
-  zone1Mode = 0x00;
-  sendRS485Packet();
+void bHeatDownPressed() {
+  if (heatSetpoint > 50) {
+    heatSetpoint--;
+    myNex.writeStr("tHeatSet.txt", String(heatSetpoint) + "F");
+  }
 }
 
-void bZone1FanAutoPressed() { zone1FanModeHigh = 0; sendRS485Packet(); }
-void bZone1FanHighPressed() { zone1FanModeHigh = 1; sendRS485Packet(); }
-void bZone1FanLowPressed()  { zone1FanModeHigh = 2; sendRS485Packet(); }
+void bCoolUpPressed() {
+  if (coolSetpoint < 90) {
+    coolSetpoint++;
+    myNex.writeStr("tCoolSet.txt", String(coolSetpoint) + "F");
+  }
+}
 
-void bZone2CoolPressed() { zone2Mode = 0x03; sendRS485Packet(); }
-void bZone2OffPressed()  { zone2Mode = 0x00; sendRS485Packet(); }
+void bCoolDownPressed() {
+  if (coolSetpoint > heatSetpoint + 2) {
+    coolSetpoint--;
+    myNex.writeStr("tCoolSet.txt", String(coolSetpoint) + "F");
+  }
+}
 
-void bZone2FanAutoPressed() { zone2FanModeHigh = 0; sendRS485Packet(); }
-void bZone2FanHighPressed() { zone2FanModeHigh = 1; sendRS485Packet(); }
-void bZone2FanLowPressed()  { zone2FanModeHigh = 2; sendRS485Packet(); }
-
-void bZone1TempUpPressed() { zone1Setpoint++; sendRS485Packet(); }
-void bZone1TempDownPressed() { zone1Setpoint--; sendRS485Packet(); }
-
-void bZone2TempUpPressed() { zone2Setpoint++; sendRS485Packet(); }
-void bZone2TempDownPressed() { zone2Setpoint--; sendRS485Packet(); }
+void bHomePressed() {
+  myNex.writeNum("page", 0);  // Go Home
+}
