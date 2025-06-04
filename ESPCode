@@ -18,7 +18,7 @@ HardwareSerial nextionSerial(1);
 EasyNex myNex(nextionSerial);
 
 // DS18B20 Temp Sensor
-#define ONE_WIRE_BUS 25
+#define ONE_WIRE_BUS 4
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
