@@ -216,6 +216,7 @@ void updateSystemStatus() {
 void bZone1TempUpPressed() {
   if (zone1Setpoint < 90) {
     zone1Setpoint++;
+    myNex.writeStr("tZone1Set.txt", String(zone1Setpoint));
     sendRS485Packet();
   }
 }
@@ -223,6 +224,7 @@ void bZone1TempUpPressed() {
 void bZone1TempDownPressed() {
   if (zone1Setpoint > 50) {
     zone1Setpoint--;
+    myNex.writeStr("tZone1Set.txt", String(zone1Setpoint));
     sendRS485Packet();
   }
 }
@@ -261,6 +263,7 @@ void bZone1FanLowPressed() {
 void bZone2TempUpPressed() {
   if (zone2Setpoint < 90) {
     zone2Setpoint++;
+    myNex.writeStr("tZone2Set.txt", String(zone2Setpoint));
     sendRS485Packet();
   }
 }
@@ -268,6 +271,7 @@ void bZone2TempUpPressed() {
 void bZone2TempDownPressed() {
   if (zone2Setpoint > 50) {
     zone2Setpoint--;
+    myNex.writeStr("tZone2Set.txt", String(zone2Setpoint));
     sendRS485Packet();
   }
 }
