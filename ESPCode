@@ -211,3 +211,88 @@ void updateSystemStatus() {
     }
   }
 }
+
+// Zone 1 Handlers
+void bZone1TempUpPressed() {
+  if (zone1Setpoint < 90) {
+    zone1Setpoint++;
+    sendRS485Packet();
+  }
+}
+
+void bZone1TempDownPressed() {
+  if (zone1Setpoint > 50) {
+    zone1Setpoint--;
+    sendRS485Packet();
+  }
+}
+
+void bZone1CoolPressed() {
+  zone1Mode = 0x03; // Cool
+  sendRS485Packet();
+}
+
+void bZone1HeatPressed() {
+  zone1Mode = 0x02; // Heat
+  sendRS485Packet();
+}
+
+void bZone1OffPressed() {
+  zone1Mode = 0x00; // Off
+  sendRS485Packet();
+}
+
+void bZone1FanAutoPressed() {
+  zone1FanModeHigh = 0; // Auto (Low)
+  sendRS485Packet();
+}
+
+void bZone1FanHighPressed() {
+  zone1FanModeHigh = 1; // High
+  sendRS485Packet();
+}
+
+void bZone1FanLowPressed() {
+  zone1FanModeHigh = 2; // Low
+  sendRS485Packet();
+}
+
+// Zone 2 Handlers
+void bZone2TempUpPressed() {
+  if (zone2Setpoint < 90) {
+    zone2Setpoint++;
+    sendRS485Packet();
+  }
+}
+
+void bZone2TempDownPressed() {
+  if (zone2Setpoint > 50) {
+    zone2Setpoint--;
+    sendRS485Packet();
+  }
+}
+
+void bZone2CoolPressed() {
+  zone2Mode = 0x03; // Cool
+  sendRS485Packet();
+}
+
+void bZone2OffPressed() {
+  zone2Mode = 0x00; // Off
+  sendRS485Packet();
+}
+
+void bZone2FanAutoPressed() {
+  zone2FanModeHigh = 0; // Auto (Low)
+  sendRS485Packet();
+}
+
+void bZone2FanHighPressed() {
+  zone2FanModeHigh = 1; // High
+  sendRS485Packet();
+}
+
+void bZone2FanLowPressed() {
+  zone2FanModeHigh = 2; // Low
+  sendRS485Packet();
+}
